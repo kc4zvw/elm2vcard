@@ -1,0 +1,126 @@
+#!/usr/bin/python -u
+
+###--------------------------------------------------------------------------###
+#
+#    Author : David Billsbrough <billsbrough@gmail.com>
+#   Created : Tuesday, June 02, 2015 at 18:41:43 PM (EDT)
+#   License : GNU General Public License - version 2
+#   Version : $Revision: 0.3 $
+#  Warranty : None
+#
+#   Purpose : Convert an elm address book for use with vCard formatted file.
+#
+#  $Id: elm2vcard,v 0.3 2015/06/02 23:01:46 kc4zvw Exp kc4zvw $
+#
+###--------------------------------------------------------------------------###
+
+
+import os
+import string
+import time
+
+def get_home_dir():
+	myHOME = os.environ["HOME"]
+	print "My $HOME directory is %s.\n" % myHOME
+	return myHOME
+
+def get_timestamp():
+	# return UTC date in format of "19991120T120000Z"
+	timetuple = time.gmtime(time.time())
+	return time.strftime("%Y%m%dT%H%M%SZ", timetuple)
+
+def delete_comment(name, pos):
+	return name[0:pos]
+
+def get_firstname(name, pos):
+	return name[pos+2:]
+
+def get_lastname(name, pos):
+	return name[0:pos]
+
+def get_fullname(first_name, last_name):
+	full_name = first_name + " " + last_name
+	return full_name
+
+def display_entry(alias, name, email):
+	print "Converting %s (%s)." % (name, alias)
+	#print "   name: \"%s\"" % name
+	#print " e-mail: %s" % email
+	#print ""
+
+def add_quotes(tag):
+	s = string.join(('"', tag, '",'), "")
+	return s
+
+def write_ns_entry(alias, first, last, email):
+	fullname = get_fullname(first, last)
+	timestamp = get_timestamp()
+	first_name = first
+	last_name = last
+
+	output.write('BEGIN:VCARD\n')
+	output.write('VERSION:4.0\n')
+	output.write('N:%s;%s;;;\n' % (last_name,first_name))
+	output.write('FN:%s\n' % fullname)
+	output.write('ORG:N/A\n')
+	output.write('TITLE:%s\n' % alias)
+	output.write('PHOTO;MEDIATYPE=image/gif:my_photo.gif\n')
+	output.write('TEL;TYPE=work,voice;VALUE=uri:tel:+1-111-555-1212\n')
+	output.write('TEL;TYPE=home,voice;VALUE=uri:tel:+1-404-555-1212\n')
+	output.write('ADR;TYPE=work;LABEL=\n')
+	output.write('DR;TYPE=home;LABEL=\n')
+	output.write('EMAIL:%s\n' % email)
+	output.write('REV:%s\n' % timestamp)
+	output.write('END:VCARD\n')
+	output.write('\n')
+
+
+def process_line(aline):
+	pos1 = pos2 = 0
+	first = last = ""
+
+	list = string.split(aline[:-1], " = ")
+
+	alias = list[0]
+	name = list[1]
+	email = list[2]
+
+	pos1 = string.find(name, ',')				# search for a comma
+	pos2 = string.find(name, ';')				# search for a semicolon
+	#print "comma at '%d'; semicolon at '%d'" % (pos1, pos2)
+
+	if (pos1 > 0) :
+		name = delete_comment(name, pos1)
+
+	if (pos2 > 0) :
+		first = get_firstname(name, pos2)
+		last = get_lastname(name, pos2)
+		name = get_fullname(first, last)
+
+	display_entry(alias, name, email)			# display progress
+	write_ns_entry(alias, first, last, email)	# write single LDIF entry
+
+
+""" -------------------- Main Routine -------------------- """
+
+home = get_home_dir()
+
+elm = string.join((home, ".elm", "aliases.text"), os.sep)
+vcard_file = string.join((home, "address_book.vcard"), os.sep)
+
+print "The elm mail alias file is %s." % elm
+print "The Earthlink address book file is %s." % vcard_file
+print
+
+input = open(elm, 'r')
+output = open(vcard_file, 'w')
+
+for line in input.readlines():
+	process_line(line)
+
+input.close() 
+output.close()
+
+print "Conversion completed."
+
+# End of Program
